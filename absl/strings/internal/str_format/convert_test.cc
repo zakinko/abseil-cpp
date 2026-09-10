@@ -895,6 +895,17 @@ void TestWithMultipleFormatsHelper(Floating tested_float) {
           std::fpclassify(tested_float) == FP_SUBNORMAL) {
         continue;
       }
+
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
+      // These printfs do not type the argument of a positional %F
+      // conversion: __find_arguments (printf-pos.c on FreeBSD and
+      // DragonFly, vfwprintf.c on NetBSD) lists a, A, e, E, f, g and G as
+      // double conversions but not F. Unless another conversion in the
+      // same format names the argument, "%1$F" reads garbage, and
+      // vsnprintf may return a length in the hundreds of millions, which
+      // StrAppend would then try to allocate. Skip before calling it.
+      if (f == 'F' && fmt_str.find('$') != std::string::npos) continue;
+#endif
         int i = -10;
         FormatArgImpl args[2] = {FormatArgImpl(tested_float), FormatArgImpl(i)};
         UntypedFormatSpecImpl format(fmt_str);
@@ -920,15 +931,6 @@ void TestWithMultipleFormatsHelper(Floating tested_float) {
         if (std::isnan(tested_float) && !native_traits.nan_has_sign_with_plus_flag) {
           continue;
         }
-#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
-        // These printfs do not type the argument of a positional %F
-        // conversion: __find_arguments (printf-pos.c on FreeBSD and
-        // DragonFly, vfwprintf.c on NetBSD) lists a, A, e, E, f, g and G
-        // as double conversions but not F. Unless another conversion in
-        // the same format names the argument, "%1$F" reads garbage, and
-        // vsnprintf may return a length in the hundreds of millions.
-        if (f == 'F' && fmt_str.find('$') != std::string::npos) continue;
-#endif
         // We use ASSERT_EQ here because failures are usually correlated and a
         // bug would print way too many failed expectations causing the test
         // to time out.
