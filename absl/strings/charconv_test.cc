@@ -36,6 +36,16 @@
 #define ABSL_STRTOD_HANDLES_NAN_CORRECTLY 1
 #endif
 
+// The BSD libcs disagree with their own nan(3) about NaN payloads: OpenBSD's
+// strtod leaves the quiet bit clear ("nan(1)" gives 0x7ff0000000000001), and
+// on FreeBSD and OpenBSD a payload wider than the mantissa is put into the
+// sign bit by nan() but masked by strtod. Only the nan() side is what
+// from_chars follows, so do not compare against strtod there.
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+#undef ABSL_STRTOD_HANDLES_NAN_CORRECTLY
+#define ABSL_STRTOD_HANDLES_NAN_CORRECTLY 0
+#endif
+
 namespace {
 
 using absl::strings_internal::Pow10;
@@ -604,6 +614,15 @@ TEST(FromChars, NaNDoubles) {
         "99999999999999999999999", "_"}) {
     std::string input = absl::StrCat("nan(", n_char_sequence, ")");
     SCOPED_TRACE(input);
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+    // The BSD nan(3)s do not agree with __builtin_nan, which from_chars
+    // follows, on a sequence wider than the mantissa: FreeBSD and OpenBSD
+    // let the excess run into the sign bit (nan("99999999999999999999999")
+    // is 0xfff9999999999999, so its negation is itself), and DragonFly reads
+    // the sequence as decimal and keeps the low bits. Every sequence that
+    // fits agrees. Skip the wide one there.
+    if (n_char_sequence.size() > 16) continue;
+#endif
     double from_chars_double;
     absl::from_chars(input.data(), input.data() + input.size(),
                      from_chars_double);
@@ -637,6 +656,10 @@ TEST(FromChars, NaNFloats) {
         "99999999999999999999999", "_"}) {
     std::string input = absl::StrCat("nan(", n_char_sequence, ")");
     SCOPED_TRACE(input);
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+    // See NaNDoubles.
+    if (n_char_sequence.size() > 16) continue;
+#endif
     float from_chars_float;
     absl::from_chars(input.data(), input.data() + input.size(),
                      from_chars_float);
