@@ -678,6 +678,13 @@ std::optional<std::string> StrPrintChar(wchar_t c) {
     return std::string(1, static_cast<char>(c));
   }
 
+  // Values that are not Unicode scalar values have no defined conversion
+  // (see GetMaxForConversion), and libcs differ on them: glibc's %lc fails,
+  // DragonFly's encodes the low bits. Do not compare those.
+  if (c < 0 || static_cast<std::make_unsigned_t<wchar_t>>(c) > 0x10ffff) {
+    return std::nullopt;
+  }
+
   // Force a UTF-8 locale to match the expected `StrFormat()` behavior.
   // It's important to copy the string returned by `old_locale` here, because
   // its contents are not guaranteed to be valid after the next `setlocale()`
