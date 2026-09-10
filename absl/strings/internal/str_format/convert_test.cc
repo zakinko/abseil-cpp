@@ -897,6 +897,14 @@ void TestWithMultipleFormatsHelper(Floating tested_float) {
 #elif defined(__APPLE__)
         // Apple formats NaN differently (+nan) vs. (nan)
         if (std::isnan(tested_float)) continue;
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
+        // These printfs do not type the argument of a positional %F
+        // conversion: __find_arguments (printf-pos.c on FreeBSD and
+        // DragonFly, vfwprintf.c on NetBSD) lists a, A, e, E, f, g and G
+        // as double conversions but not F. Unless another conversion in
+        // the same format names the argument, "%1$F" reads garbage, and
+        // vsnprintf may return a length in the hundreds of millions.
+        if (f == 'F' && fmt_str.find('$') != std::string::npos) continue;
 #endif
         // We use ASSERT_EQ here because failures are usually correlated and a
         // bug would print way too many failed expectations causing the test
