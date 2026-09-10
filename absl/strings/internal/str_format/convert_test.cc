@@ -59,6 +59,7 @@ struct NativePrintfTraits {
   bool hex_float_prefers_denormal_repr;
   bool hex_float_uses_minimal_precision_when_not_specified;
   bool hex_float_optimizes_leading_digit_bit_count;
+  bool nan_has_sign_with_plus_flag;
 };
 
 template <typename T, size_t N>
@@ -283,6 +284,12 @@ NativePrintfTraits VerifyNativeImplementationImpl() {
   result.hex_float_optimizes_leading_digit_bit_count =
       StartsWith(StrPrint("%a", d_15), "0x1.8") &&
       StartsWith(StrPrint("%La", ld_15), "0xc");
+
+  // >>> nan_has_sign_with_plus_flag. glibc prints "+nan" for "%+f" of a NaN;
+  // Apple and the BSDs print "nan" with no sign.
+  result.nan_has_sign_with_plus_flag =
+      StartsWith(StrPrint("%+f", std::numeric_limits<double>::quiet_NaN()),
+                 "+");
 
   return result;
 }
@@ -900,10 +907,12 @@ void TestWithMultipleFormatsHelper(Floating tested_float) {
         // MSVC has a different rounding policy than us so we can't test our
         // implementation against the native one there.
         continue;
-#elif defined(__APPLE__) || defined(__FreeBSD__)
-        // Apple and FreeBSD format NaN differently (+nan) vs. (nan)
-        if (std::isnan(tested_float)) continue;
 #endif
+        // Apple and the BSDs print NaN without a sign under "%+f"; glibc
+        // prints "+nan", which is what StrFormat does.
+        if (std::isnan(tested_float) && !native_traits.nan_has_sign_with_plus_flag) {
+          continue;
+        }
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
         // These printfs do not type the argument of a positional %F
         // conversion: __find_arguments (printf-pos.c on FreeBSD and
