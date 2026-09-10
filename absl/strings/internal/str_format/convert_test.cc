@@ -626,6 +626,18 @@ TYPED_TEST_P(TypedFormatConvertTest, AllIntsWithFlags) {
               continue;
             }
 
+#if defined(__OpenBSD__)
+            // OpenBSD's printf prints nothing for "%#.0o" of zero. C requires
+            // a single 0 there: with the # flag the precision is raised so
+            // that the first digit is 0, and for a zero value and zero
+            // precision one 0 is printed (C11 7.21.6.1p6). glibc and FreeBSD
+            // do; StrFormat does.
+            if (conv_char == 'o' && val == 0 && (prec == "." || prec == ".0") &&
+                flag_set.find('#') != std::string::npos) {
+              continue;
+            }
+#endif
+
             std::string new_fmt("%");
             new_fmt += flag_set;
             new_fmt += wid;
