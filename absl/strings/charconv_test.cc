@@ -36,6 +36,16 @@
 #define ABSL_STRTOD_HANDLES_NAN_CORRECTLY 1
 #endif
 
+// The BSD libcs disagree with their own nan(3) about NaN payloads: OpenBSD's
+// strtod leaves the quiet bit clear ("nan(1)" gives 0x7ff0000000000001), and
+// on FreeBSD and OpenBSD a payload wider than the mantissa is put into the
+// sign bit by nan() but masked by strtod. Only the nan() side is what
+// from_chars follows, so do not compare against strtod there.
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+#undef ABSL_STRTOD_HANDLES_NAN_CORRECTLY
+#define ABSL_STRTOD_HANDLES_NAN_CORRECTLY 0
+#endif
+
 namespace {
 
 using absl::strings_internal::Pow10;
