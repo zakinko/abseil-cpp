@@ -614,6 +614,12 @@ TEST(FromChars, NaNDoubles) {
         "99999999999999999999999", "_"}) {
     std::string input = absl::StrCat("nan(", n_char_sequence, ")");
     SCOPED_TRACE(input);
+#if defined(__DragonFly__)
+    // DragonFly's nan(3) reads the sequence as a decimal number and keeps
+    // the low bits of the result; a sequence wider than the mantissa then
+    // comes out different from __builtin_nan's, which from_chars follows.
+    if (n_char_sequence.size() > 16) continue;
+#endif
     double from_chars_double;
     absl::from_chars(input.data(), input.data() + input.size(),
                      from_chars_double);
